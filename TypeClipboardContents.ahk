@@ -8,6 +8,14 @@ Esc::
 ; Hotkey to send clipboard contents as keystrokes with a delay (e.g., Ctrl+Shift+V)
 ^+v::
 {
+    ; Get the current active window title
+    WinGetActiveTitle, ActiveWindow
+    if (ActiveWindow == "")
+    {
+        MsgBox, Failed to get the active window title.
+        ExitApp
+    }
+
     ; Save the current clipboard content
     ClipboardBackup := Clipboard
     ; Wait for the clipboard to contain data (timeout: 2 seconds)
@@ -15,7 +23,7 @@ Esc::
     if (ErrorLevel)
     {
         MsgBox, Failed to detect clipboard data within 2 seconds.
-        ExitApp ; Terminate the script after execution
+        ExitApp
     }
 
     ; Check if the clipboard has content
@@ -27,11 +35,19 @@ Esc::
         
         ; Split clipboard into an array of lines
         Lines := StrSplit(Clipboard, "`n") ; Creates an array of lines
-        Delay := 5 ; Delay in milliseconds
+        Delay := 50 ; Delay in milliseconds
         
-        ; Send each line with a delay
+        ; Send each line with a delay, terminate if window loses focus
         Loop, % Lines.MaxIndex()
         {
+            ; Check if the active window has changed
+            WinGetActiveTitle, CurrentWindow
+            if (CurrentWindow != ActiveWindow)
+            {
+                MsgBox, Window lost focus. Terminating script.
+                ExitApp
+            }
+            
             if GetKeyState("Esc", "P") ; Emergency stop check
             {
                 MsgBox, Script interrupted by the user.
