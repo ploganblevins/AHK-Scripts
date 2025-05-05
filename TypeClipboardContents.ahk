@@ -1,69 +1,52 @@
-﻿#SingleInstance Force
-; Panic button: Press the Escape key to stop the script
-Esc::
-{
-    ExitApp ; Immediately terminates the script
-}
+﻿; TypeClipboardContents.ahk
+#SingleInstance Force
 
-; Hotkey to send clipboard contents as keystrokes with a delay (e.g., Ctrl+Shift+V)
+; ─── Configuration ────────────────────────────────────────────────────────────
+Delay := 50 ; Delay between lines, in milliseconds
+
+; ─── Panic button: press Escape to quit the script ─────────────────────────────
+Esc::ExitApp
+
+; ─── Send clipboard contents as keystrokes: Ctrl+Shift+V ───────────────────────
 ^+v::
-{
-    ; Get the current active window title
     WinGetActiveTitle, ActiveWindow
-    if (ActiveWindow == "")
-    {
-        MsgBox, Failed to get the active window title.
-        ExitApp
+    if (ActiveWindow = "") {
+        MsgBox, 48, Error, Failed to get the active window title.
+        return
     }
 
-    ; Save the current clipboard content
-    ClipboardBackup := Clipboard
-    ; Wait for the clipboard to contain data (timeout: 2 seconds)
-    ClipWait, 2
-    if (ErrorLevel)
-    {
-        MsgBox, Failed to detect clipboard data within 2 seconds.
-        ExitApp
+    ; Back up & ensure we have something to type
+    ClipboardBackup := ClipboardAll
+    if (!Clipboard) {
+        MsgBox, 48, Warning, Clipboard is empty!
+        return
     }
 
-    ; Check if the clipboard has content
-    if (Clipboard != "")
-    {
-        ; Normalize line endings and remove trailing newline characters
-        Clipboard := RegExReplace(Clipboard, "\r\n|\r", "`n") ; Normalize line endings
-        Clipboard := RegExReplace(Clipboard, "`n+$", "") ; Remove trailing newlines
-        
-        ; Split clipboard into an array of lines
-        Lines := StrSplit(Clipboard, "`n") ; Creates an array of lines
-        Delay := 50 ; Delay in milliseconds
-        
-        ; Send each line with a delay, terminate if window loses focus
-        Loop, % Lines.MaxIndex()
-        {
-            ; Check if the active window has changed
-            WinGetActiveTitle, CurrentWindow
-            if (CurrentWindow != ActiveWindow)
-            {
-                MsgBox, Window lost focus. Terminating script.
-                ExitApp
-            }
-            
-            if GetKeyState("Esc", "P") ; Emergency stop check
-            {
-                MsgBox, Script interrupted by the user.
-                ExitApp
-            }
-            SendRaw, % Lines[A_Index]
+    ; Normalize into lines
+    Clipboard := RegExReplace(Clipboard, "\r\n|\r", "`n")
+    Clipboard := RegExReplace(Clipboard, "`n+$", "")
+    Lines := StrSplit(Clipboard, "`n")
+
+    ; Type each line; only send Enter on all but the last
+    MaxIndex := Lines.MaxIndex()
+    for Index, Line in Lines {
+        WinGetActiveTitle, CurrentWindow
+        if (CurrentWindow != ActiveWindow) {
+            MsgBox, 48, Aborted, Window lost focus. Exiting.
+            break
+        }
+        if GetKeyState("Esc", "P") {
+            MsgBox, 48, Aborted, Interrupted by user.
+            break
+        }
+
+        SendRaw, % Line
+        if (Index < MaxIndex) {
             Send, {Enter}
-            Sleep, %Delay%
+            Sleep, % Delay
         }
     }
-    else
-    {
-        MsgBox, Clipboard is empty!
-    }
-    ; Restore the original clipboard content
+
+    ; Restore original clipboard
     Clipboard := ClipboardBackup
-    ClipboardBackup := ""
-    ExitApp ; Terminate the script after execution
-}
+return
